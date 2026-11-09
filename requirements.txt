@@ -7,3 +7,4 @@ openai
 safetensors
 fugashi
 ipadic
+unidic-lite
