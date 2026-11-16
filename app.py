@@ -1,3 +1,4 @@
+
 import streamlit as st
 import torch
 import numpy as np
@@ -6,7 +7,11 @@ from datetime import datetime
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from openai import OpenAI
 
-st.set_page_config(page_title="Emotion Writing Support", page_icon="💬", layout="wide")
+st.set_page_config(
+    page_title="Emotion Writing Support",
+    page_icon="💬",
+    layout="wide"
+)
 
 MODEL_PATH = "Ryoseihasegawa/wrime-emotion-model"
 EMOTION_NAMES = ["喜び", "悲しみ", "期待", "驚き", "怒り", "恐れ", "嫌悪", "信頼"]
@@ -36,7 +41,11 @@ hr {border-color:#edf1f5;}
 </style>
 """, unsafe_allow_html=True)
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"], base_url="https://api.openai.iniad.org/api/v1")
+client = OpenAI(
+    api_key=st.secrets["OPENAI_API_KEY"],
+    base_url="https://api.openai.iniad.org/api/v1"
+)
+
 
 @st.cache_resource
 def load_model():
@@ -45,11 +54,17 @@ def load_model():
     model.eval()
     return tokenizer, model
 
+
 tokenizer, model = load_model()
 
 
 def analyze_emotion(text):
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+    inputs = tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        padding=True
+    )
     with torch.no_grad():
         outputs = model(**inputs)
     logits = outputs.logits[0].detach().cpu().numpy()
@@ -65,8 +80,22 @@ def level_label(score):
 
 
 def draw_emotion_chart(scores, title="感情強度"):
-    fig = go.Figure(go.Bar(x=EMOTION_NAMES, y=scores, text=[f"{v:.2f}" for v in scores], textposition="outside"))
-    fig.update_layout(title=title, height=350, margin=dict(l=25, r=20, t=55, b=30), yaxis=dict(range=[0, 1.05], title="感情強度"), xaxis=dict(title=""), showlegend=False)
+    fig = go.Figure(
+        go.Bar(
+            x=EMOTION_NAMES,
+            y=scores,
+            text=[f"{v:.2f}" for v in scores],
+            textposition="outside"
+        )
+    )
+    fig.update_layout(
+        title=title,
+        height=350,
+        margin=dict(l=25, r=20, t=55, b=30),
+        yaxis=dict(range=[0, 1.05], title="感情強度"),
+        xaxis=dict(title=""),
+        showlegend=False
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -75,21 +104,37 @@ def draw_target_chart(before, target, after):
     fig.add_bar(name="変換前", x=EMOTION_NAMES, y=before)
     fig.add_bar(name="目標", x=EMOTION_NAMES, y=target)
     fig.add_bar(name="結果", x=EMOTION_NAMES, y=after)
-    fig.update_layout(barmode="group", height=390, margin=dict(l=25, r=20, t=45, b=30), yaxis=dict(range=[0, 1.05], title="感情強度"), legend=dict(orientation="h", y=1.12))
+    fig.update_layout(
+        barmode="group",
+        height=390,
+        margin=dict(l=25, r=20, t=45, b=30),
+        yaxis=dict(range=[0, 1.05], title="感情強度"),
+        legend=dict(orientation="h", y=1.12)
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
-def call_gpt(prompt, system="あなたは日本語の文章コミュニケーションを改善するアシスタントです。"):
+def call_gpt(
+    prompt,
+    system="あなたは日本語の文章コミュニケーションを改善するアシスタントです。"
+):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt}
+        ]
     )
     return response.choices[0].message.content.strip()
 
 
 def context_text(audience, channel, preserve):
     keep = preserve.strip() if preserve.strip() else "特になし"
-    return f"""相手: {audience}\n使用場面: {channel}\n必ず保持する内容: {keep}"""
+    return (
+        f"相手: {audience}\n"
+        f"使用場面: {channel}\n"
+        f"必ず保持する内容: {keep}"
+    )
 
 
 def rewrite_preset(text, mode, audience, channel, preserve):
@@ -99,6 +144,7 @@ def rewrite_preset(text, mode, audience, channel, preserve):
         "business": "簡潔で自然な敬語を使ったビジネス向け表現",
         "workplace": "威圧的・攻撃的・人格否定的な表現を避け、業務上必要な内容を明確に伝える職場向け表現",
     }
+
     prompt = f"""
 次の文章を「{modes[mode]}」へ書き換えてください。
 
@@ -120,40 +166,98 @@ def rewrite_preset(text, mode, audience, channel, preserve):
     return call_gpt(prompt)
 
 
-def make_direction_text(current_scores, target_scores, original_scores):
+def make_direction_text(
+    current_scores,
+    target_scores,
+    original_scores
+):
     lines = []
-    for name, current, target, original in zip(EMOTION_NAMES, current_scores, target_scores, original_scores):
+
+    for name, current, target, original in zip(
+        EMOTION_NAMES,
+        current_scores,
+        target_scores,
+        original_scores
+    ):
         change = float(target - original)
         remaining = float(target - current)
+
         if change > 0.05:
-            lines.append(f"- {name}: 元 {original:.2f} / 現在 {current:.2f} / 目標 {target:.2f}。さらに {max(0, remaining):.2f} 上げる方向を重視")
+            lines.append(
+                f"- {name}: 元 {original:.2f} / 現在 {current:.2f} / "
+                f"目標 {target:.2f}。さらに {max(0, remaining):.2f} "
+                "上げる方向を重視"
+            )
         elif change < -0.05:
-            lines.append(f"- {name}: 元 {original:.2f} / 現在 {current:.2f} / 目標 {target:.2f}。さらに {max(0, -remaining):.2f} 下げる方向を重視")
+            lines.append(
+                f"- {name}: 元 {original:.2f} / 現在 {current:.2f} / "
+                f"目標 {target:.2f}。さらに {max(0, -remaining):.2f} "
+                "下げる方向を重視"
+            )
         else:
-            lines.append(f"- {name}: 明示的な変更指定なし（現在 {current:.2f}）。無理に固定する必要はない")
+            lines.append(
+                f"- {name}: 明示的な変更指定なし"
+                f"（現在 {current:.2f}）。無理に固定する必要はない"
+            )
+
     return "\n".join(lines)
 
 
 def emotion_errors(scores, target_scores, original_scores):
-    """変更幅の大きい感情を優先。参考値として8感情の通常MAEも保持する。"""
+    """変更幅の大きい感情を優先して誤差を計算する。"""
     changes = np.abs(target_scores - original_scores)
     weights = 1.0 + 5.0 * changes
     errors = np.abs(scores - target_scores)
+
     weighted = float(np.average(errors, weights=weights))
     mae = float(np.mean(errors))
+
     changed = changes > 0.05
-    focus_error = float(np.mean(errors[changed])) if np.any(changed) else mae
+    focus_error = (
+        float(np.mean(errors[changed]))
+        if np.any(changed)
+        else mae
+    )
+
     return weighted, mae, focus_error
 
 
-def candidate_prompt(original_text, current_text, current_scores, target_scores, original_scores, audience, channel, preserve, priority):
+def candidate_prompt(
+    original_text,
+    current_text,
+    current_scores,
+    target_scores,
+    original_scores,
+    audience,
+    channel,
+    preserve,
+    priority
+):
     priorities = {
-        "自然さ重視": "感情目標を明確に反映しつつ、実際に送っても違和感のない自然さを特に重視する。",
-        "感情目標重視": "目標に指定された感情が読者に伝わることを最も重視し、語調・構成を大胆に変更する。",
-        "意味保持重視": "重要な事実・依頼・結論を特に丁寧に保持しながら、感情表現は積極的に変更する。",
+        "自然さ重視": (
+            "感情目標を明確に反映しつつ、実際に送っても"
+            "違和感のない自然さを特に重視する。"
+        ),
+        "感情目標重視": (
+            "目標に指定された感情が読者に伝わることを"
+            "最も重視し、語調・構成を大胆に変更する。"
+        ),
+        "意味保持重視": (
+            "重要な事実・依頼・結論を特に丁寧に保持しながら、"
+            "感情表現は積極的に変更する。"
+        ),
     }
-    current_text_scores = "\n".join(f"- {n}: {s:.2f}" for n, s in zip(EMOTION_NAMES, current_scores))
-    target_text_scores = "\n".join(f"- {n}: {s:.2f}" for n, s in zip(EMOTION_NAMES, target_scores))
+
+    current_text_scores = "\n".join(
+        f"- {n}: {s:.2f}"
+        for n, s in zip(EMOTION_NAMES, current_scores)
+    )
+
+    target_text_scores = "\n".join(
+        f"- {n}: {s:.2f}"
+        for n, s in zip(EMOTION_NAMES, target_scores)
+    )
+
     return f"""
 あなたの最優先の仕事は、指定された感情が文章全体から明確に伝わるよう日本語文章を書き換えることです。
 単なる敬語化・語尾変更だけで終わらせず、語彙、語調、文章構成、言い回し、文の長さを必要に応じて大胆に変更してください。
@@ -169,7 +273,7 @@ def candidate_prompt(original_text, current_text, current_scores, target_scores,
 元の文章:
 {original_text}
 
-現在の候補（前回の書き換え結果）:
+現在の候補:
 {current_text}
 
 現在の感情分析モデルの推定値（0～1、確率ではない）:
@@ -200,39 +304,81 @@ def candidate_prompt(original_text, current_text, current_scores, target_scores,
 - 「必ず保持する内容」、事実関係、重要な依頼・結論は削除・変更しない。
 - 元の文体や構成を保つ必要はない。感情が変わるように再構成する。
 - 変更指定のない感情を無理に元の数値へ固定しなくてよい。
-- 現在の候補で目標に届いていない感情は、前回より明確に表現を変える。
 - 数値や感情分析について文章内で説明せず、完成した文章だけを出力する。
 """
 
 
-def optimize_candidate(original_text, target_scores, audience, channel, preserve, priority, max_attempts=5, tolerance=0.10):
-    current_text = original_text
+# ---------- 1回のみ文章生成 ----------
+def optimize_candidate(
+    original_text,
+    target_scores,
+    audience,
+    channel,
+    preserve,
+    priority
+):
+    """
+    ユーザー評価用:
+    各候補につきGPTによる文章生成を1回だけ実行する。
+    """
     original_scores = analyze_emotion(original_text)
-    best_text = None
-    best_scores = None
-    best_error = float("inf")
-    best_mae = float("inf")
-    best_focus_error = float("inf")
-    history = []
 
-    for attempt in range(1, max_attempts + 1):
-        current_scores = analyze_emotion(current_text)
-        prompt = candidate_prompt(original_text, current_text, current_scores, target_scores, original_scores, audience, channel, preserve, priority)
-        candidate = call_gpt(prompt, "あなたは指定された感情表現を積極的に実現する日本語文章の書き換えアシスタントです。重要な事実は保持しつつ、語彙・語調・構成を大胆に調整してください。")
-        scores = analyze_emotion(candidate)
-        error, mae, focus_error = emotion_errors(scores, target_scores, original_scores)
-        history.append({"attempt": attempt, "text": candidate, "scores": scores.copy(), "error": error, "mae": mae, "focus_error": focus_error})
-        if error < best_error:
-            best_text, best_scores = candidate, scores.copy()
-            best_error, best_mae, best_focus_error = error, mae, focus_error
-        if error <= tolerance:
-            break
-        current_text = candidate
+    prompt = candidate_prompt(
+        original_text=original_text,
+        current_text=original_text,
+        current_scores=original_scores,
+        target_scores=target_scores,
+        original_scores=original_scores,
+        audience=audience,
+        channel=channel,
+        preserve=preserve,
+        priority=priority
+    )
 
-    return {"label": priority, "text": best_text, "scores": best_scores, "error": best_error, "mae": best_mae, "focus_error": best_focus_error, "history": history}
+    candidate = call_gpt(
+        prompt,
+        "あなたは指定された感情表現を積極的に実現する"
+        "日本語文章の書き換えアシスタントです。"
+        "重要な事実は保持しつつ、語彙・語調・構成を"
+        "大胆に調整してください。"
+    )
+
+    scores = analyze_emotion(candidate)
+
+    error, mae, focus_error = emotion_errors(
+        scores,
+        target_scores,
+        original_scores
+    )
+
+    history = [{
+        "attempt": 1,
+        "text": candidate,
+        "scores": scores.copy(),
+        "error": error,
+        "mae": mae,
+        "focus_error": focus_error
+    }]
+
+    return {
+        "label": priority,
+        "text": candidate,
+        "scores": scores,
+        "error": error,
+        "mae": mae,
+        "focus_error": focus_error,
+        "history": history
+    }
 
 
-def save_history(original, result, mode, audience, channel, target=None, rating=None):
+def save_history(
+    original,
+    result,
+    mode,
+    audience,
+    channel,
+    target=None
+):
     item = {
         "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "original": original,
@@ -240,22 +386,47 @@ def save_history(original, result, mode, audience, channel, target=None, rating=
         "mode": mode,
         "audience": audience,
         "channel": channel,
-        "target": target.tolist() if isinstance(target, np.ndarray) else target,
-        "rating": rating,
+        "target": (
+            target.tolist()
+            if isinstance(target, np.ndarray)
+            else target
+        )
     }
+
     st.session_state.setdefault("history", []).insert(0, item)
     st.session_state["history"] = st.session_state["history"][:20]
 
 
 def clear_results():
-    for key in ["result_text", "result_scores", "result_mode", "candidates", "selected_candidate", "custom_target", "selected_priority", "edited_scores"]:
+    for key in [
+        "result_text",
+        "result_scores",
+        "result_mode",
+        "candidates",
+        "selected_candidate",
+        "custom_target",
+        "selected_priority",
+        "edited_scores",
+        "final_editor"
+    ]:
         st.session_state.pop(key, None)
 
 
 # ---------- Header ----------
-st.markdown('<div class="app-kicker">Emotion Writing Support</div>', unsafe_allow_html=True)
-st.markdown('<div class="app-title">感情を確認しながら、伝わり方を整える</div>', unsafe_allow_html=True)
-st.markdown('<div class="app-subtitle">文章の8感情を分析し、相手・場面・目標感情に合わせた表現を提案します。</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="app-kicker">Emotion Writing Support</div>',
+    unsafe_allow_html=True
+)
+st.markdown(
+    '<div class="app-title">感情を確認しながら、伝わり方を整える</div>',
+    unsafe_allow_html=True
+)
+st.markdown(
+    '<div class="app-subtitle">'
+    '文章の8感情を分析し、相手・場面・目標感情に合わせた表現を提案します。'
+    '</div>',
+    unsafe_allow_html=True
+)
 
 # ---------- Quick guide ----------
 st.markdown("### このアプリの使い方")
@@ -264,213 +435,522 @@ st.markdown("""
 2. **変換方法を選択**：相手や使用場面を選びます。数値を操作しない場合は「ニュートラル」などの**かんたん変換**を押してください。細かく調整したい場合は、8感情のスライダーを動かして「3つの候補を生成」を押します。
 3. **結果を確認**：生成された文章と変換後の感情分析結果を確認し、必要に応じて文章を編集できます。
 """)
+
 with st.expander("感情スコアと変換方法について"):
     st.markdown("""
 - 感情スコアは**WRIMEで学習したモデルによる推定値（0〜1）**です。感情の正解や確率を示すものではありません。
 - **ニュートラル**は感情値を指定せず、自然で落ち着いた表現に調整します。8感情を一律に0にする機能ではありません。
 - 生成結果はAIによる提案です。重要な事実や相手への伝わり方は、送信前にご自身で確認してください。
 """)
+
 st.divider()
 
 # ---------- STEP 1 ----------
-st.markdown('<span class="step">STEP 1</span><div class="section-title">文章を分析</div><div class="section-desc">まず、書き換えたい文章の現在の感情傾向を確認します。</div>', unsafe_allow_html=True)
-text = st.text_area("文章", height=150, placeholder="例：この前お願いした資料なんだけど、まだ完成してないの？…", key="input_text")
+st.markdown(
+    '<span class="step">STEP 1</span>'
+    '<div class="section-title">文章を分析</div>'
+    '<div class="section-desc">'
+    'まず、書き換えたい文章の現在の感情傾向を確認します。'
+    '</div>',
+    unsafe_allow_html=True
+)
 
-if st.button("文章を分析", type="primary", use_container_width=True):
+text = st.text_area(
+    "文章",
+    height=150,
+    placeholder="例：この前お願いした資料なんだけど、まだ完成してないの？…",
+    key="input_text"
+)
+
+if st.button(
+    "文章を分析",
+    type="primary",
+    use_container_width=True
+):
     if not text.strip():
         st.warning("文章を入力してください。")
     else:
         with st.spinner("分析しています…"):
             st.session_state["original_text"] = text.strip()
-            st.session_state["original_scores"] = analyze_emotion(text.strip())
+            st.session_state["original_scores"] = analyze_emotion(
+                text.strip()
+            )
             clear_results()
-            for i, score in enumerate(st.session_state["original_scores"]):
-                st.session_state[f"target_{i}"] = float(round(float(score) / 0.05) * 0.05)
+
+            for i, score in enumerate(
+                st.session_state["original_scores"]
+            ):
+                st.session_state[f"target_{i}"] = float(
+                    round(float(score) / 0.05) * 0.05
+                )
+
 
 if "original_scores" in st.session_state:
     original_scores = st.session_state["original_scores"]
     original_text = st.session_state["original_text"]
 
     st.markdown("### 分析結果")
+
     cols = st.columns(4)
-    for i, (name, score) in enumerate(zip(EMOTION_NAMES, original_scores)):
+
+    for i, (name, score) in enumerate(
+        zip(EMOTION_NAMES, original_scores)
+    ):
         with cols[i % 4]:
-            st.metric(name, f"{score:.2f}", help=f"目安: {level_label(float(score))}")
+            st.metric(
+                name,
+                f"{score:.2f}",
+                help=f"目安: {level_label(float(score))}"
+            )
             st.caption(level_label(float(score)))
+
     with st.expander("グラフで確認", expanded=True):
-        draw_emotion_chart(original_scores, "入力文章の感情強度")
+        draw_emotion_chart(
+            original_scores,
+            "入力文章の感情強度"
+        )
 
     st.divider()
 
     # ---------- STEP 2 ----------
-    st.markdown('<span class="step">STEP 2</span><div class="section-title">変換条件を設定</div><div class="section-desc">誰に、どこで送る文章かを指定してから、変換方法を選びます。</div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        audience = st.selectbox("相手", ["指定なし", "友人", "恋人・パートナー", "家族", "上司", "同僚", "部下", "取引先", "顧客", "その他"])
-    with c2:
-        channel = st.selectbox("使用場面", ["指定なし", "LINE・DM", "メール", "ビジネスチャット", "SNS投稿", "対面で伝える文章", "その他"])
+    st.markdown(
+        '<span class="step">STEP 2</span>'
+        '<div class="section-title">変換条件を設定</div>'
+        '<div class="section-desc">'
+        '誰に、どこで送る文章かを指定してから、変換方法を選びます。'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
-    preserve = st.text_area("必ず残したい内容（任意）", height=90, placeholder="例：今日中に提出してほしい / 遅れる場合は事前に連絡してほしい")
-    st.caption("日時・金額・依頼内容など、AIに変更してほしくない情報を書いてください。")
+    c1, c2 = st.columns(2)
+
+    with c1:
+        audience = st.selectbox(
+            "相手",
+            [
+                "指定なし",
+                "友人",
+                "恋人・パートナー",
+                "家族",
+                "上司",
+                "同僚",
+                "部下",
+                "取引先",
+                "顧客",
+                "その他"
+            ]
+        )
+
+    with c2:
+        channel = st.selectbox(
+            "使用場面",
+            [
+                "指定なし",
+                "LINE・DM",
+                "メール",
+                "ビジネスチャット",
+                "SNS投稿",
+                "対面で伝える文章",
+                "その他"
+            ]
+        )
+
+    preserve = st.text_area(
+        "必ず残したい内容（任意）",
+        height=90,
+        placeholder=(
+            "例：今日中に提出してほしい / "
+            "遅れる場合は事前に連絡してほしい"
+        )
+    )
+
+    st.caption(
+        "日時・金額・依頼内容など、AIに変更してほしくない情報を書いてください。"
+    )
 
     st.markdown("#### かんたん変換")
+
     p1, p2, p3, p4 = st.columns(4)
     preset = None
+
     with p1:
-        if st.button("ニュートラル", use_container_width=True): preset = ("neutral", "ニュートラル")
+        if st.button(
+            "ニュートラル",
+            use_container_width=True
+        ):
+            preset = ("neutral", "ニュートラル")
+
     with p2:
-        if st.button("優しい表現", use_container_width=True): preset = ("gentle", "優しい表現")
+        if st.button(
+            "優しい表現",
+            use_container_width=True
+        ):
+            preset = ("gentle", "優しい表現")
+
     with p3:
-        if st.button("ビジネス向け", use_container_width=True): preset = ("business", "ビジネス向け")
+        if st.button(
+            "ビジネス向け",
+            use_container_width=True
+        ):
+            preset = ("business", "ビジネス向け")
+
     with p4:
-        if st.button("職場向け表現", use_container_width=True): preset = ("workplace", "職場向け表現")
-    st.caption("ニュートラルは感情の数値を設定せず、相手・使用場面に合った落ち着いた文章へ変換します。")
+        if st.button(
+            "職場向け表現",
+            use_container_width=True
+        ):
+            preset = ("workplace", "職場向け表現")
+
+    st.caption(
+        "ニュートラルは感情の数値を設定せず、"
+        "相手・使用場面に合った落ち着いた文章へ変換します。"
+    )
 
     if preset:
         with st.spinner("文章を整えています…"):
-            result = rewrite_preset(original_text, preset[0], audience, channel, preserve)
+            result = rewrite_preset(
+                original_text,
+                preset[0],
+                audience,
+                channel,
+                preserve
+            )
             scores = analyze_emotion(result)
+
         st.session_state["result_text"] = result
         st.session_state["result_scores"] = scores
         st.session_state["result_mode"] = preset[1]
+
         st.session_state.pop("candidates", None)
         st.session_state.pop("custom_target", None)
-        save_history(original_text, result, preset[1], audience, channel)
+        st.session_state.pop("final_editor", None)
+
+        save_history(
+            original_text,
+            result,
+            preset[1],
+            audience,
+            channel
+        )
 
     st.markdown("#### 感情を細かく調整")
-    st.caption("スライダーは現在値から始まります。大きく動かした感情ほど、生成と候補選択で重視します。")
+    st.caption(
+        "スライダーは現在値から始まります。"
+        "大きく動かした感情ほど、生成と候補選択で重視します。"
+    )
 
     target_scores = []
+
     for row in range(4):
         cols = st.columns(2)
+
         for j in range(2):
             i = row * 2 + j
             name = EMOTION_NAMES[i]
             current = float(original_scores[i])
+
             with cols[j]:
-                st.markdown(f"**{name}**　現在 {current:.2f} → 目標")
-                target = st.slider(name, 0.0, 1.0, float(round(current, 2)), 0.05, key=f"target_{i}", label_visibility="collapsed")
+                st.markdown(
+                    f"**{name}**　現在 {current:.2f} → 目標"
+                )
+
+                target = st.slider(
+                    name,
+                    0.0,
+                    1.0,
+                    float(round(current, 2)),
+                    0.05,
+                    key=f"target_{i}",
+                    label_visibility="collapsed"
+                )
+
                 diff = target - current
+
                 if diff > 0.025:
                     st.caption(f"上げる　+{diff:.2f}")
                 elif diff < -0.025:
                     st.caption(f"下げる　{diff:.2f}")
                 else:
                     st.caption("ほぼ維持")
+
                 target_scores.append(target)
-    target_scores = np.array(target_scores, dtype=np.float32)
 
-    with st.expander("詳細設定"):
-        max_attempts = st.slider("1候補あたりの最大調整回数", 1, 5, 5)
-        tolerance = st.slider("終了判定の重み付き誤差", 0.05, 0.25, 0.10, 0.01)
-        st.caption("変更幅の大きい感情を優先した誤差がこの値以下になった場合、反復を終了します。")
+    target_scores = np.array(
+        target_scores,
+        dtype=np.float32
+    )
 
-    if st.button("3つの候補を生成", type="primary", use_container_width=True):
-        with st.spinner("3つの方針で文章を生成し、感情を再分析しています…"):
+    # 詳細設定は削除。
+    # 各候補の文章生成は1回に固定する。
+
+    if st.button(
+        "3つの候補を生成",
+        type="primary",
+        use_container_width=True
+    ):
+        with st.spinner(
+            "3つの方針で文章を生成し、感情を再分析しています…"
+        ):
             candidates = []
-            for priority in ["自然さ重視", "感情目標重視", "意味保持重視"]:
-                candidates.append(optimize_candidate(original_text, target_scores, audience, channel, preserve, priority, max_attempts, tolerance))
+
+            for priority in [
+                "自然さ重視",
+                "感情目標重視",
+                "意味保持重視"
+            ]:
+                candidates.append(
+                    optimize_candidate(
+                        original_text,
+                        target_scores,
+                        audience,
+                        channel,
+                        preserve,
+                        priority
+                    )
+                )
+
         st.session_state["candidates"] = candidates
-        st.session_state["custom_target"] = target_scores.copy()
+        st.session_state["custom_target"] = (
+            target_scores.copy()
+        )
+
         st.session_state.pop("result_text", None)
+        st.session_state.pop("result_scores", None)
+        st.session_state.pop("final_editor", None)
+
 
 # ---------- STEP 3 / candidates ----------
 if st.session_state.get("candidates"):
     st.divider()
-    st.markdown('<span class="step">STEP 3</span><div class="section-title">生成結果を選択</div><div class="section-desc">方針の異なる3候補から、実際に使いたい文章を選べます。</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<span class="step">STEP 3</span>'
+        '<div class="section-title">生成結果を選択</div>'
+        '<div class="section-desc">'
+        '方針の異なる3候補から、実際に使いたい文章を選べます。'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
     candidates = st.session_state["candidates"]
     target = st.session_state["custom_target"]
+
     cols = st.columns(3)
+
     for i, cand in enumerate(candidates):
         with cols[i]:
             st.markdown(f"#### {cand['label']}")
             st.write(cand["text"])
-            st.metric("変更幅を重視した誤差", f"{cand['error']:.3f}")
-            st.caption(f"8感情の通常MAE: {cand['mae']:.3f} / 変更した感情のMAE: {cand['focus_error']:.3f}")
-            if st.button("この文章を選択", key=f"choose_{i}", use_container_width=True):
+
+            st.metric(
+                "変更幅を重視した誤差",
+                f"{cand['error']:.3f}"
+            )
+
+            st.caption(
+                f"8感情の通常MAE: {cand['mae']:.3f} / "
+                f"変更した感情のMAE: "
+                f"{cand['focus_error']:.3f}"
+            )
+
+            if st.button(
+                "この文章を選択",
+                key=f"choose_{i}",
+                use_container_width=True
+            ):
                 st.session_state["result_text"] = cand["text"]
                 st.session_state["result_scores"] = cand["scores"]
                 st.session_state["result_mode"] = cand["label"]
                 st.session_state["selected_priority"] = cand["label"]
-                save_history(st.session_state["original_text"], cand["text"], cand["label"], audience, channel, target)
+
+                st.session_state.pop("final_editor", None)
+
+                save_history(
+                    st.session_state["original_text"],
+                    cand["text"],
+                    cand["label"],
+                    audience,
+                    channel,
+                    target
+                )
+
                 st.rerun()
-            with st.expander("調整履歴"):
-                for h in cand["history"]:
-                    st.markdown(f"**試行 {h['attempt']} / 重み付き誤差 {h['error']:.3f} / 通常MAE {h['mae']:.3f}**")
-                    st.write(h["text"])
+
+            # 試行回数は1回のため、
+            # 調整履歴は表示しない。
+
 
 # ---------- final result ----------
 if st.session_state.get("result_text"):
     st.divider()
-    st.markdown('<span class="step">RESULT</span><div class="section-title">最終結果</div><div class="section-desc">必要なら文章を自分で修正し、もう一度感情を確認できます。</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<span class="step">RESULT</span>'
+        '<div class="section-title">最終結果</div>'
+        '<div class="section-desc">'
+        '必要なら文章を自分で修正し、'
+        'もう一度感情を確認できます。'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
     result_text = st.session_state["result_text"]
     result_scores = st.session_state["result_scores"]
-    st.markdown(f"**{st.session_state.get('result_mode', '変換結果')}**")
-    edited = st.text_area("文章を編集", value=result_text, height=170, key="final_editor")
+
+    st.markdown(
+        f"**{st.session_state.get('result_mode', '変換結果')}**"
+    )
+
+    edited = st.text_area(
+        "文章を編集",
+        value=result_text,
+        height=170,
+        key="final_editor"
+    )
 
     b1, b2 = st.columns([1, 1])
+
     with b1:
-        if st.button("編集した文章を再分析", use_container_width=True):
+        if st.button(
+            "編集した文章を再分析",
+            use_container_width=True
+        ):
             with st.spinner("再分析しています…"):
                 edited_scores = analyze_emotion(edited)
+
             st.session_state["result_text"] = edited
             st.session_state["result_scores"] = edited_scores
             st.session_state["edited_scores"] = edited_scores
+
             st.rerun()
+
     with b2:
-        st.download_button("文章をテキストで保存", data=edited, file_name="rewritten_text.txt", mime="text/plain", use_container_width=True)
+        st.download_button(
+            "文章をテキストで保存",
+            data=edited,
+            file_name="rewritten_text.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
 
     result_scores = st.session_state["result_scores"]
+
     st.markdown("#### 感情の確認")
+
     cols = st.columns(4)
-    for i, (name, score) in enumerate(zip(EMOTION_NAMES, result_scores)):
+
+    for i, (name, score) in enumerate(
+        zip(EMOTION_NAMES, result_scores)
+    ):
         with cols[i % 4]:
-            before = float(st.session_state["original_scores"][i])
-            st.metric(name, f"{score:.2f}", delta=f"{float(score)-before:+.2f}")
+            before = float(
+                st.session_state["original_scores"][i]
+            )
+
+            st.metric(
+                name,
+                f"{score:.2f}",
+                delta=f"{float(score) - before:+.2f}"
+            )
 
     if "custom_target" in st.session_state:
         target = st.session_state["custom_target"]
-        draw_target_chart(st.session_state["original_scores"], target, result_scores)
-        error = float(np.mean(np.abs(result_scores - target)))
-        closeness = max(0.0, min(100.0, (1.0 - error) * 100.0))
+
+        draw_target_chart(
+            st.session_state["original_scores"],
+            target,
+            result_scores
+        )
+
+        error = float(
+            np.mean(np.abs(result_scores - target))
+        )
+
+        closeness = max(
+            0.0,
+            min(100.0, (1.0 - error) * 100.0)
+        )
+
         c1, c2 = st.columns(2)
-        c1.metric("目標との平均誤差", f"{error:.3f}")
-        c2.metric("目標への近さ（参考値）", f"{closeness:.1f}%")
-        st.caption("「目標への近さ」は8感情の平均絶対誤差から算出した参考表示で、心理学的な一致率や正解率ではありません。")
+
+        c1.metric(
+            "目標との平均誤差",
+            f"{error:.3f}"
+        )
+
+        c2.metric(
+            "目標への近さ（参考値）",
+            f"{closeness:.1f}%"
+        )
+
+        st.caption(
+            "「目標への近さ」は8感情の平均絶対誤差から"
+            "算出した参考表示で、心理学的な一致率や"
+            "正解率ではありません。"
+        )
+
     else:
         fig = go.Figure()
-        fig.add_bar(name="変換前", x=EMOTION_NAMES, y=st.session_state["original_scores"])
-        fig.add_bar(name="変換後", x=EMOTION_NAMES, y=result_scores)
-        fig.update_layout(barmode="group", height=380, yaxis=dict(range=[0,1.05], title="感情強度"), legend=dict(orientation="h", y=1.12))
-        st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("#### この結果を評価")
-    r1, r2, r3 = st.columns(3)
-    with r1: natural = st.slider("自然さ", 1, 5, 3, key="rate_natural")
-    with r2: meaning = st.slider("意味の保たれ方", 1, 5, 3, key="rate_meaning")
-    with r3: useful = st.slider("使いたさ", 1, 5, 3, key="rate_useful")
-    comment = st.text_input("コメント（任意）", key="rate_comment")
-    if st.button("評価を保存"):
-        st.session_state.setdefault("ratings", []).append({
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "text": st.session_state["result_text"],
-            "natural": natural, "meaning": meaning, "useful": useful, "comment": comment
-        })
-        st.success("このセッション内に評価を保存しました。")
+        fig.add_bar(
+            name="変換前",
+            x=EMOTION_NAMES,
+            y=st.session_state["original_scores"]
+        )
+
+        fig.add_bar(
+            name="変換後",
+            x=EMOTION_NAMES,
+            y=result_scores
+        )
+
+        fig.update_layout(
+            barmode="group",
+            height=380,
+            yaxis=dict(
+                range=[0, 1.05],
+                title="感情強度"
+            ),
+            legend=dict(
+                orientation="h",
+                y=1.12
+            )
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+    # ユーザー評価・コメント入力機能は削除。
+
 
 # ---------- history ----------
 st.divider()
+
 with st.expander("変換履歴"):
     history = st.session_state.get("history", [])
+
     if not history:
         st.caption("まだ履歴はありません。")
+
     else:
         for idx, item in enumerate(history, 1):
-            st.markdown(f"**{idx}. {item['mode']}**　{item['time']}")
-            st.caption(f"相手: {item['audience']} / 場面: {item['channel']}")
+            st.markdown(
+                f"**{idx}. {item['mode']}**　{item['time']}"
+            )
+
+            st.caption(
+                f"相手: {item['audience']} / "
+                f"場面: {item['channel']}"
+            )
+
             st.write("変換前：", item["original"])
             st.write("変換後：", item["result"])
             st.markdown("---")
 
-st.caption("感情強度はモデルによる推定値です。人の感情や意図を断定するものではありません。")
+
+st.caption(
+    "感情強度はモデルによる推定値です。"
+    "人の感情や意図を断定するものではありません。"
+)
